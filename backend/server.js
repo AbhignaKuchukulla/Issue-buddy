@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -18,19 +17,11 @@ app.use(cors({
   }
 }));
 
-const db = await JSONFilePreset('./db.json', { tickets: [] });
+// test DB vs real DB
+const isTest = process.env.NODE_ENV === "test";
+const dbFile = isTest ? "./db.test.json" : "./db.json";
 
-if (process.argv.includes('--seed') && db.data.tickets.length === 0) {
-  const now = new Date().toISOString();
-  db.data.tickets.push(
-    { id: nanoid(), title: 'First bug', description: 'Button not clickable', status: 'open', priority: 'high', assignee: 'Alex', createdAt: now, updatedAt: now },
-    { id: nanoid(), title: 'Add dark mode', description: 'Feature request', status: 'in_progress', priority: 'medium', assignee: 'Sam', createdAt: now, updatedAt: now },
-    { id: nanoid(), title: 'Fix typo on homepage', description: 'UI copy issue', status: 'closed', priority: 'low', assignee: 'Riya', createdAt: now, updatedAt: now }
-  );
-  await db.write();
-  console.log('Seeded 3 example tickets');
-  process.exit(0);
-}
+const db = await JSONFilePreset(dbFile, { tickets: [] });
 
 function validate(payload, { partial=false } = {}) {
   const allowedStatus = ['open','in_progress','review','closed'];
@@ -50,7 +41,6 @@ function validate(payload, { partial=false } = {}) {
   if (!partial || has('priority')) {
     if (!allowedPriority.includes(payload.priority)) e.push('priority must be one of ' + allowedPriority.join(', '));
   }
-  if (partial && e.length && Object.keys(payload).length === 0) e.push('nothing to update');
   return e;
 }
 
@@ -66,7 +56,7 @@ app.get('/api/tickets', (req,res) => {
 
   let items = db.data.tickets;
   if (q) items = items.filter(t => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q));
-  if (['open','in_progress','closed'].includes(status)) items = items.filter(t => t.status === status);
+  if (['open','in_progress','closed','review'].includes(status)) items = items.filter(t => t.status === status);
   if (['low','medium','high','urgent'].includes(priority)) items = items.filter(t => t.priority === priority);
 
   items = items.sort((a,b)=> new Date(b.updatedAt) - new Date(a.updatedAt));
@@ -143,4 +133,10 @@ app.delete('/api/tickets/:id', async (req,res) => {
   res.status(204).send();
 });
 
-app.listen(PORT, () => console.log(`IssueBuddy API listening on http://localhost:${PORT}`));
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () =>
+    console.log(`IssueBuddy API listening on http://localhost:${PORT}`)
+  );
+}
+
+export default app;
