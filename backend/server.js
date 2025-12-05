@@ -47,10 +47,13 @@ const dbFile = isTest ? "./db.test.json" : "./db.json";
 
 // Initialize lowdb with JSONFile adapter
 const adapter = new JSONFile(dbFile);
-const db = new Low(adapter, { tickets: [], comments: [], history: [], savedFilters: [], users: [] });
+const db = new Low(adapter);
 await db.read();
-if (!db.data) db.data = { tickets: [], comments: [], history: [], savedFilters: [], users: [] };
-await db.write();
+const defaultData = { tickets: [], comments: [], history: [], savedFilters: [], users: [] };
+if (!db.data) {
+  db.data = defaultData;
+  await db.write();
+}
 
 // Real-time activity tracking
 const onlineUsers = new Map();
